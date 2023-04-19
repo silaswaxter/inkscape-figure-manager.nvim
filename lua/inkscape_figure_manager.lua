@@ -1,18 +1,57 @@
 local buf, win
 
 local function create_figure_confirm()
+  -- start running the python InkFigMan
+  local alternate_text = '"' .. vim.api.nvim_get_current_line() .. '"' -- quote alternate text to include spaces
+  local command_response = {}
+  local add_command_data = function(channel_handle, data, stream_name)
+    command_response[stream_name] = data
+  end
+  local job_id = vim.fn.jobstart("python -m inkscape_figure_manager create " ..
+                                   alternate_text, {
+    -- wait for stream close before invoking callbacks
+    stdout_buffered = true,
+    stderr_buffered = true,
+    on_stdout = add_command_data,
+    on_stderr = add_command_data,
+    on_exit = add_command_data
+  })
+
+  -- exit insert mode and close user input window
   vim.cmd("stopinsert")
-  local alternate_text = vim.api.nvim_get_current_line()
   vim.api.nvim_win_close(win, true)
 
-  vim.api.nvim_set_current_line(
-    "Implement confirm w/ python InkFigMan. Got: " .. alternate_text) -- TODO: remove this debugging line
+  -- wait for job to finish
+  vim.fn.jobwait({job_id}, 5000) --timeout after 5 seconds
+  if command_response.exit == 0 then
+    -- insert figure inclusion text
+    --
+    -- TODO: 
+    --  * handle case for when document is not in CWD. Figures created should 
+    --    probably be in markup files directory by default
+    --  * add different modes for creating figure:
+    --      <> insert mode (puts figure at cursor's posiiton)
+    --            [] I think this will be useful in insert mode; itll be like 
+    --               you'd pasted the figure's text where the cursor was at
+    --      <> append mode (trys to put figure after cursor's position)
+    --            [] I think this will be useful in normal mode; the figure will
+    --               not push the current character to after the figure's text.
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    vim.api.nvim_buf_set_text(0, cursor[1] - 1, cursor[2], cursor[1] - 1,
+                              cursor[2], {command_response.stdout[1]})
+    cursor[2] = cursor[2] + command_response.stdout[1]:len()
+    print(cursor[2])
+    vim.api.nvim_win_set_cursor(0, cursor)
+  else
+    -- print error message
+    vim.notify(command_response.stderr[1] .. "\n", vim.log.levels.ERROR)
+  end
 end
 
 local function create_figure_cancel()
   vim.cmd("stopinsert")
   vim.api.nvim_win_close(win, true)
-  vim.api.nvim_set_current_line("Canceled creation") -- TODO: remove this debugging line
+  print("Canceled figure creation...")
 end
 
 local function create_figure_open()
