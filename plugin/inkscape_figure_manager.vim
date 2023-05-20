@@ -1,4 +1,3 @@
-
 if exists('g:loaded_inkscape_figure_manager') | finish | endif " prevent loading file twice
 
 let s:save_cpo = &cpo " save user coptions
