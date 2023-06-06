@@ -19,10 +19,21 @@ local function start_job_inkfigman(inkfigman_arguments)
   return inkfigman_job
 end
 
-local function create_figure_confirm()
+local function concat_with_spaces(words)
+  local concat = ""
+  for i = 1, (#words - 1), 1 do concat = concat .. words[i] .. " " end
+  return concat .. words[#words]
+end
+
+local function create_figure_confirm(creation_directory)
   -- quote alternate text to include spaces
   local alternate_text = '"' .. vim.api.nvim_get_current_line() .. '"'
-  local create_figure_job = start_job_inkfigman("create " .. alternate_text)
+
+  local create_figure_job = start_job_inkfigman(
+                              concat_with_spaces({
+      "create", "--figure-dir", creation_directory, "--relative-from",
+      creation_directory, alternate_text
+    }))
 
   vim.cmd("stopinsert")
   vim.api.nvim_win_close(create_figure_text_input_window, true)
@@ -47,8 +58,9 @@ local function create_figure_cancel()
 end
 
 local function create_figure_open()
-  local context_buf_path = vim.api.nvim_buf_get_name(0)
-  local context_dir = string.match(context_buf_path, "^$")
+  local user_buffer_directory = vim.api.nvim_buf_get_name(0)
+  user_buffer_directory = string.sub(user_buffer_directory,
+                                     string.find(user_buffer_directory, ".*/"))
 
   buf = vim.api.nvim_create_buf(false, true)
 
@@ -75,7 +87,8 @@ local function create_figure_open()
 
   -- Bind "Enter" as confirm and "Esc" as cancel for this buffer
   vim.api.nvim_buf_set_keymap(buf, "i", "<cr>",
-                              "<cmd>lua require('inkscape_figure_manager').create_figure_confirm()<cr>",
+                              "<cmd>lua require('inkscape_figure_manager').create_figure_confirm(" ..
+                                "\"" .. user_buffer_directory .. "\"" .. ")<cr>",
                               {})
   vim.api.nvim_buf_set_keymap(buf, "i", "<esc>",
                               "<cmd>lua require('inkscape_figure_manager').create_figure_cancel()<cr>",
