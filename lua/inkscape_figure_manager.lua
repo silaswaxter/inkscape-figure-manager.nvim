@@ -19,10 +19,24 @@ local function start_job_inkfigman(inkfigman_arguments)
   return inkfigman_job
 end
 
+local function get_user_buffer_directory()
+  local user_buffer_absolute_path = vim.api.nvim_buf_get_name(0)
+  return string.sub(user_buffer_absolute_path,
+                    string.find(user_buffer_absolute_path, ".*/"))
+end
+
 local function concat_with_spaces(words)
   local concat = ""
   for i = 1, (#words - 1), 1 do concat = concat .. words[i] .. " " end
   return concat .. words[#words]
+end
+
+local function watch_directory_for_figures(watch_directory)
+  start_job_inkfigman(concat_with_spaces({"watch", watch_directory}))
+end
+
+local function watch_user_buffer_directory_for_figures()
+  watch_directory_for_figures(get_user_buffer_directory())
 end
 
 local function create_figure_confirm(creation_directory)
@@ -58,9 +72,7 @@ local function create_figure_cancel()
 end
 
 local function create_figure_open()
-  local user_buffer_directory = vim.api.nvim_buf_get_name(0)
-  user_buffer_directory = string.sub(user_buffer_directory,
-                                     string.find(user_buffer_directory, ".*/"))
+  local user_buffer_directory = get_user_buffer_directory()
 
   buf = vim.api.nvim_create_buf(false, true)
 
@@ -96,6 +108,8 @@ local function create_figure_open()
 end
 
 return {
+  watch_user_buffer_directory_for_figures = watch_user_buffer_directory_for_figures,
+  watch_directory_for_figures = watch_directory_for_figures,
   create_figure_open = create_figure_open,
   create_figure_confirm = create_figure_confirm,
   create_figure_cancel = create_figure_cancel
