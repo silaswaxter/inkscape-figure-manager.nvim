@@ -10,6 +10,8 @@ command! InkscapeFigureManagerWatchThisBufferDirectory lua require'inkscape_figu
 
 command! InkscapeFigureManagerEditFirstFigureCurrentLine lua require'inkscape_figure_manager'.edit_first_figure_on_current_line()
 
+command! InkscapeFigureManagerEditFigureUnderCursor lua require'inkscape_figure_manager'.edit_figure_under_cursor()
+
 let &cpo = s:save_cpo " and restore after
 unlet s:save_cpo
 
