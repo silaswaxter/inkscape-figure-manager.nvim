@@ -8,6 +8,8 @@ command! InkscapeFigureManagerCreate lua require'inkscape_figure_manager'.create
 
 command! InkscapeFigureManagerWatchThisBufferDirectory lua require'inkscape_figure_manager'. watch_user_buffer_directory_for_figures()
 
+command! InkscapeFigureManagerEditFirstFigureCurrentLine lua require'inkscape_figure_manager'.edit_first_figure_on_current_line()
+
 let &cpo = s:save_cpo " and restore after
 unlet s:save_cpo
 

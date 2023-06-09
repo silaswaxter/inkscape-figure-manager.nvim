@@ -31,6 +31,46 @@ local function concat_with_spaces(words)
   return concat .. words[#words]
 end
 
+local function file_can_be_read(file_name)
+  local f = io.open(file_name, "r+b")
+  return f ~= nil and io.close(f)
+end
+
+local function get_figure_absolute_path(markdown_text,
+                                        markdown_buffer_absolute_path)
+  --markdown cannot include image filenames with spaces
+  local _, _, markdown_text_image_path =
+    string.find(markdown_text, "!%[.*%]%([ \t]*%.?/?(%S*)[ \t]*%)")
+
+  local markdown_text_figure_path = string.gsub(markdown_text_image_path,
+                                                ".png$", ".svg")
+
+  local figure_absolute_path = nil
+  if string.sub(markdown_text_figure_path, 1, 1) == "/" then
+    figure_absolute_path = markdown_text_figure_path
+  else
+    figure_absolute_path = markdown_buffer_absolute_path .. "/" ..
+                             markdown_text_figure_path
+  end
+
+  if file_can_be_read(figure_absolute_path) then
+    return figure_absolute_path
+  else
+    return nil
+  end
+end
+
+local function edit_first_figure_on_current_line()
+  local current_line = vim.api.nvim_get_current_line()
+  local figure_absolute_path = get_figure_absolute_path(current_line,
+                                                        get_user_buffer_directory())
+  if figure_absolute_path ~= nil then
+    start_job_inkfigman(concat_with_spaces({"edit", figure_absolute_path}))
+  else
+    print("Figure could not be opened")
+  end
+end
+
 local function watch_directory_for_figures(watch_directory)
   start_job_inkfigman(concat_with_spaces({"watch", watch_directory}))
 end
@@ -108,6 +148,7 @@ local function create_figure_open()
 end
 
 return {
+  edit_first_figure_on_current_line = edit_first_figure_on_current_line,
   watch_user_buffer_directory_for_figures = watch_user_buffer_directory_for_figures,
   watch_directory_for_figures = watch_directory_for_figures,
   create_figure_open = create_figure_open,
