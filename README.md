@@ -11,6 +11,13 @@ editors. This plugin pairs Inkscape, a FOSS svg editor, with neovim.
 - [x] edit figure
 - [ ] rename figure
 
+## Requirements
+
+- Supported OS(es):
+  - Linux
+  - Mac (untested, was supported at underlying python app's fork)
+- Python >= 3.10
+
 ## FAQ
 
 - What does it mean to  "watch" figures?
