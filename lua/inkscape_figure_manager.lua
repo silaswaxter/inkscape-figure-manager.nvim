@@ -74,6 +74,10 @@ local function get_figure_texts_table(raw_text)
   return figure_texts
 end
 
+local function edit_figure_from_markdown_document()
+  start_job_inkfigman(concat_with_spaces({"edit", vim.api.nvim_buf_get_name(0)}))
+end
+
 local function edit_first_figure_on_current_line()
   local current_line = vim.api.nvim_get_current_line()
   edit_figure(get_figure_absolute_path(get_figure_texts_table(current_line)[1],
@@ -169,6 +173,7 @@ local function create_figure_open()
 end
 
 return {
+  edit_figure_from_markdown_document = edit_figure_from_markdown_document,
   edit_first_figure_on_current_line = edit_first_figure_on_current_line,
   edit_figure_under_cursor = edit_figure_under_cursor,
   watch_user_buffer_directory_for_figures = watch_user_buffer_directory_for_figures,

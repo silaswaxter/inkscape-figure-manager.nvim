@@ -12,6 +12,8 @@ command! InkscapeFigureManagerEditFirstFigureCurrentLine lua require'inkscape_fi
 
 command! InkscapeFigureManagerEditFigureUnderCursor lua require'inkscape_figure_manager'.edit_figure_under_cursor()
 
+command! InkscapeFigureManagerEditFigureFromMarkdownBuffer lua require'inkscape_figure_manager'.edit_figure_from_markdown_document()
+ 
 let &cpo = s:save_cpo " and restore after
 unlet s:save_cpo
 
