@@ -31,6 +31,71 @@ local function concat_with_spaces(words)
   return concat .. words[#words]
 end
 
+local function file_can_be_read(file_name)
+  local f = io.open(file_name, "r+b")
+  return f ~= nil and io.close(f)
+end
+
+-- expects markdown_text to be a string of `![...](...)`
+local function get_figure_absolute_path(markdown_text,
+                                        markdown_buffer_absolute_path)
+  local _, _, markdown_text_figure_path = string.find(markdown_text, "!%[.-%]%((.-)%)")
+  markdown_text_figure_path = string.gsub(markdown_text_figure_path, ".png$", ".svg")
+
+  local figure_absolute_path = nil
+  if string.sub(markdown_text_figure_path, 1, 1) == "/" then
+    figure_absolute_path = markdown_text_figure_path
+  else
+    figure_absolute_path = markdown_buffer_absolute_path ..
+                             markdown_text_figure_path
+  end
+
+  if file_can_be_read(figure_absolute_path) then
+    return figure_absolute_path
+  else
+    return nil
+  end
+end
+
+local function edit_figure(figure_absolute_path)
+  if figure_absolute_path ~= nil then
+    start_job_inkfigman(concat_with_spaces({"edit", figure_absolute_path}))
+  else
+    print("Figure could not be opened")
+  end
+end
+
+-- returns a table containing all markdown figure inclusion text from within the raw_text
+local function get_figure_texts_table(raw_text)
+  local figure_texts = {}
+  for figure_text in string.gmatch(raw_text, "!%[.-%]%(.-%)") do
+    table.insert(figure_texts, figure_text)
+  end
+  return figure_texts
+end
+
+local function edit_figure_from_markdown_document()
+  start_job_inkfigman(concat_with_spaces({"edit", vim.api.nvim_buf_get_name(0)}))
+end
+
+local function edit_first_figure_on_current_line()
+  local current_line = vim.api.nvim_get_current_line()
+  edit_figure(get_figure_absolute_path(get_figure_texts_table(current_line)[1],
+                                       get_user_buffer_directory()))
+end
+
+local function edit_figure_under_cursor()
+  local current_line = vim.api.nvim_get_current_line()
+  local cursor = vim.api.nvim_win_get_cursor(0)
+
+  local truncated_line = string.sub(current_line, 1,
+                                    string.find(current_line, "%)", cursor[2]))
+
+  local figure_texts = get_figure_texts_table(truncated_line)
+  edit_figure(get_figure_absolute_path(figure_texts[#figure_texts],
+                                       get_user_buffer_directory()))
+end
+
 local function watch_directory_for_figures(watch_directory)
   start_job_inkfigman(concat_with_spaces({"watch", watch_directory}))
 end
@@ -108,6 +173,9 @@ local function create_figure_open()
 end
 
 return {
+  edit_figure_from_markdown_document = edit_figure_from_markdown_document,
+  edit_first_figure_on_current_line = edit_first_figure_on_current_line,
+  edit_figure_under_cursor = edit_figure_under_cursor,
   watch_user_buffer_directory_for_figures = watch_user_buffer_directory_for_figures,
   watch_directory_for_figures = watch_directory_for_figures,
   create_figure_open = create_figure_open,
