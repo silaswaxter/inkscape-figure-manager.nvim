@@ -1,5 +1,7 @@
 # Inkscape Figure Manager | A Neovim Plugin
 
+![InkFigMan Header Logo](header_logo.png)
+
 Manage images/figures within a markdown document from neovim. As neovim chads,
 we should have fast workflows that are as featureful as the plebian WYSISWG
 editors. This plugin pairs Inkscape, a FOSS svg editor, with neovim.
