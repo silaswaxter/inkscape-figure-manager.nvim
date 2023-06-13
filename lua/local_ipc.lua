@@ -11,15 +11,18 @@ function LocalIpc:new(o)
          "You must initialize parameters when creating new LocalIpc.")
   setmetatable(o, self)
   self.__index = self
+
+  local error_message
+  self.socket, error_message = posix_socket.socket(posix_socket.AF_UNIX,
+                                                   posix_socket.SOCK_DGRAM, 0)
+  assert(self.socket ~= nil, common_utils.sanitize_error_message(error_message))
+
+  self.is_socket_bound = false
+
   return o
 end
 
-function LocalIpc:open_socket()
-  local error_message
-  self.socket, error_message = posix_socket.socket(posix_socket.AF_UNIX,
-                                                    posix_socket.SOCK_DGRAM, 0)
-  assert(self.socket ~= nil, common_utils.sanitize_error_message(error_message))
-
+function LocalIpc:bind_socket()
   local bind_return_code
   bind_return_code, error_message = posix_socket.bind(self.socket, {
     family = posix_socket.AF_UNIX,
@@ -27,10 +30,23 @@ function LocalIpc:open_socket()
   })
   assert(bind_return_code == 0,
          common_utils.sanitize_error_message(error_message))
+  self.is_socket_bound = true
+end
+
+function LocalIpc:send_datagram(datagram)
+  assert(not self.is_socket_bound,
+         "Socket MUST NOT be bound when sending a datagram")
+  local sendto_return_code, error_message =
+    posix_socket.sendto(self.socket, datagram,
+                        {family = posix_socket.AF_UNIX, path = self.path})
+  assert(sendto_return_code ~= nil, error_message)
 end
 
 function LocalIpc:read_datagram_poll()
-  local datagram_recv, error_message = posix_socket.recv(self.socket, self.DATAGRAM_LENGTH)
+  assert(self.is_socket_bound,
+         "Socket MUST be bound when receiving a datagram")
+  local datagram_recv, error_message = posix_socket.recv(self.socket,
+                                                         self.DATAGRAM_LENGTH)
   assert(datagram_recv ~= nil,
          common_utils.sanitize_error_message(error_message))
   return datagram_recv
