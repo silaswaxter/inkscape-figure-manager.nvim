@@ -23,8 +23,7 @@ function LocalIpc:new(o)
 end
 
 function LocalIpc:bind_socket()
-  local bind_return_code
-  bind_return_code, error_message = posix_socket.bind(self.socket, {
+  local bind_return_code, error_message = posix_socket.bind(self.socket, {
     family = posix_socket.AF_UNIX,
     path = self.path
   })
@@ -53,7 +52,7 @@ function LocalIpc:read_datagram_poll()
 end
 
 -- NOTE: messages can be viewed with `journalctl`
-function LocalIpc:syslog_received_messages(is_syslog_open)
+function LocalIpc:syslog_datagram_poll(is_syslog_open)
   if not is_syslog_open then
     local logger_name = self.path
     if self.path:sub(1, 1) == '\0' then
@@ -62,11 +61,9 @@ function LocalIpc:syslog_received_messages(is_syslog_open)
     print("logging as '" .. logger_name .. "'")
     posix_syslog.openlog(logger_name)
   end
-  while true do
-    local data = self:read_datagram_poll()
-    posix_syslog.syslog(posix_syslog.LOG_INFO,
-                        "received datagram: '" .. data .. "'")
-  end
+  local data = self:read_datagram_poll()
+  posix_syslog.syslog(posix_syslog.LOG_INFO,
+                      "received datagram: '" .. data .. "'")
 end
 
 return LocalIpc
