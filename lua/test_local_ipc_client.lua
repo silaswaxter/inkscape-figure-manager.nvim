@@ -1,6 +1,6 @@
 local posix_socket = require('posix.sys.socket')
 
-local SOCKET_ADDRESS = '\0inkscape-figure-managerd'
+local SOCKET_ADDRESS = '\0oopsie'
 
 local dgram = arg[1] or 'test data'
 
