@@ -1,26 +1,26 @@
 -- A daemon process driver for posix systems.
 --
 -- Example:
--- The following code creates a daemon that does nothing so long as there is 
+-- The following code creates a daemon that does nothing so long as there is
 -- not already a daemon running with the same process_name
 --
 --   local Daemon = require('daemon')
---   
+--
 --   local function busy_loop() while true do end end
---   
+--
 --   local dumbyd = Daemon:new{
 --     routine = busy_loop,
 --     process_name = "dumbyd"
 --   }
 --   dumbyd:ensure_daemon()
--- 
+--
 local posix = require('posix')
 local posix_unistd = require('posix.unistd')
 local posix_syslog = require('posix.syslog')
 local posix_signal = require('posix.signal')
 local common_utils = require('common_utils')
 
-local Daemon = {}
+local Daemon = {routine = nil, process_name = nil, routine_params = nil}
 
 local function close_all_open_file_descriptors_brute_force()
   local system_max_open_file_descriptors =
@@ -54,15 +54,18 @@ local function overwrite_pid_file(process_name)
 end
 
 -- You must initialize the following parameters when constructing a new daemon
--- Params:
+-- Required Params:
 --    o.routine      := (function) the daemon executes this function
 --    o.process_name := (string) the name of the daemon that will be used
 --                      while tracking its pid.
+-- Optional Params:
+--    o.routine_params := (table) passed to o.routine function
 function Daemon:new(o)
-  assert(o.process_name ~= nil and o.process_name ~= "" and o.routine ~= nil,
-         "You must initialize parameters constructing a new daemon.")
-  setmetatable(o, self)
+  assert(o.process_name ~= nil and o.process_name ~= "",
+         "You must set the process_name")
+  assert(o.routine ~= nil, "You must set the routine.")
   self.__index = self
+  setmetatable(o, self)
   return o
 end
 
@@ -110,7 +113,7 @@ function Daemon:create_daemon()
   posix_syslog.openlog(self.process_name, posix_syslog.LOG_PID,
                        posix_syslog.LOG_DAEMON)
 
-  self.routine()
+  self.routine(self.routine_params)
 end
 
 -- Ensure a daemon process with the name is running
