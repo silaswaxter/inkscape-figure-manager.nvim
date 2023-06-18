@@ -113,6 +113,7 @@ function Daemon:create_daemon()
   posix_syslog.openlog(self.process_name, posix_syslog.LOG_PID,
                        posix_syslog.LOG_DAEMON)
 
+  posix_syslog.syslog(posix_syslog.LOG_INFO, self.process_name .. " started")
   self.routine(self.routine_params)
 end
 
