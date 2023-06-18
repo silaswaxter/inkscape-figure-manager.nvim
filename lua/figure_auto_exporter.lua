@@ -4,6 +4,7 @@
 local inotify = require('inotify')
 local LocalIpc = require('local_ipc')
 local Daemon = require('daemon')
+local common_utils = require('common_utils')
 local posix_syslog = require('posix.syslog')
 local posix_fcntl = require('posix.fcntl')
 
@@ -38,7 +39,8 @@ function figure_auto_exporter.daemon_routine(routine_params)
       local _, _, dir_to_watch = message:find(".-watch:(.*)")
 
       if dir_to_watch ~= nil then
-        posix_syslog.syslog(posix_syslog.LOG_INFO, "watching:'" .. dir_to_watch .. "'")
+        posix_syslog.syslog(posix_syslog.LOG_INFO,
+                            "watching:'" .. dir_to_watch .. "'")
 
         local wd = inotify_handle:addwatch(dir_to_watch, inotify.IN_CREATE,
                                            inotify.IN_MODIFY)
@@ -52,6 +54,13 @@ function figure_auto_exporter.daemon_routine(routine_params)
                                      event.name
         posix_syslog.syslog(posix_syslog.LOG_INFO,
                             file_absolute_path .. " created or modified")
+
+        os.execute(common_utils.concat_with_spaces({
+          'inkscape', file_absolute_path, '--export-area-page',
+          '--export-dpi=300', '--export-type=png'
+        }))
+        posix_syslog.syslog(posix_syslog.LOG_INFO,
+                            file_absolute_path .. " exported as png")
       end
     end
   end
