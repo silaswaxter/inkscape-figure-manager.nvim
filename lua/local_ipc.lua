@@ -1,4 +1,4 @@
-local posix_socket = require('posix.sys.socket')
+  local posix_socket = require('posix.sys.socket')
 local posix_syslog = require('posix.syslog')
 local common_utils = require('common_utils')
 
@@ -23,10 +23,9 @@ function LocalIpc:new(o)
 end
 
 function LocalIpc:bind_socket()
-  local bind_return_code, error_message = posix_socket.bind(self.socket, {
-    family = posix_socket.AF_UNIX,
-    path = self.path
-  })
+  local bind_return_code, error_message =
+    posix_socket.bind(self.socket,
+                      {family = posix_socket.AF_UNIX, path = self.path})
   assert(bind_return_code == 0,
          common_utils.sanitize_error_message(error_message))
   self.is_socket_bound = true
@@ -35,23 +34,26 @@ end
 function LocalIpc:send_datagram(datagram)
   assert(not self.is_socket_bound,
          "Socket MUST NOT be bound when sending a datagram")
-  local sendto_return_code, error_message =
+  local sendto_return_code, error_message, errno =
     posix_socket.sendto(self.socket, datagram,
                         {family = posix_socket.AF_UNIX, path = self.path})
-  assert(sendto_return_code ~= nil, error_message)
 end
 
-function LocalIpc:read_datagram_poll()
-  assert(self.is_socket_bound,
-         "Socket MUST be bound when receiving a datagram")
+function LocalIpc:read_datagram_poll(is_logging_to_opened_syslog)
+  assert(self.is_socket_bound, "Socket MUST be bound when receiving a datagram")
   local datagram_recv, error_message = posix_socket.recv(self.socket,
                                                          self.DATAGRAM_LENGTH)
-  assert(datagram_recv ~= nil,
-         common_utils.sanitize_error_message(error_message))
+  if datagram_recv == nil then
+    if is_logging_to_opened_syslog then
+      posix_syslog.syslog(posix_syslog.LOG_INFO,
+                          common_utils.sanitize_error_message(error_message))
+    end
+  end
   return datagram_recv
 end
 
--- NOTE: messages can be viewed with `journalctl`
+-- NOTE: messages can be viewed with `journalctl`; the `-f` flag will show tail
+--       of logs
 function LocalIpc:syslog_datagram_poll(is_syslog_open)
   if not is_syslog_open then
     local logger_name = self.path
