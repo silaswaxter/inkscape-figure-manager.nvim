@@ -20,4 +20,9 @@ function common_utils.concat_with_spaces(words)
   return string
 end
 
+local function busy_wait(time_s)
+  local sec = tonumber(os.clock() + time_s);
+  while (os.clock() < sec) do end
+end
+
 return common_utils

@@ -13,11 +13,6 @@ local figure_auto_exporter = {}
 local DAEMON_PROCESS_NAME = "inkscape_figure_managerd"
 local LOCAL_IPC_PATH = "\0" .. DAEMON_PROCESS_NAME
 
-local function busy_wait(time_s)
-  local sec = tonumber(os.clock() + time_s);
-  while (os.clock() < sec) do end
-end
-
 function figure_auto_exporter.daemon_routine(routine_params)
   -- First, setup the socket so that clients have minimal wait time.
   -- (recall, they cannot send messages until this endpoint is established)
