@@ -4,6 +4,7 @@
 local inotify = require('inotify')
 local LocalIpc = require('local_ipc')
 local Daemon = require('daemon')
+local InkscapeController = require('inkscape_controller')
 local common_utils = require('common_utils')
 local posix_syslog = require('posix.syslog')
 local posix_fcntl = require('posix.fcntl')
@@ -49,11 +50,7 @@ function figure_auto_exporter.daemon_routine(routine_params)
                                      event.name
         posix_syslog.syslog(posix_syslog.LOG_INFO,
                             file_absolute_path .. " created or modified")
-
-        os.execute(common_utils.concat_with_spaces({
-          'inkscape', file_absolute_path, '--export-area-page',
-          '--export-dpi=300', '--export-type=png'
-        }))
+        InkscapeController.export_figure(file_absolute_path)
         posix_syslog.syslog(posix_syslog.LOG_INFO,
                             file_absolute_path .. " exported as png")
       end
