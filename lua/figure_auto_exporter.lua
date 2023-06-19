@@ -74,10 +74,16 @@ function figure_auto_exporter.client_add_watch_location(path_to_watch)
   }
   daemon:ensure_daemon()
 
-  -- when a daemon is created, need to wait for it to open the socket
-  busy_wait(1)
   local local_ipc_sender = LocalIpc:new{path = LOCAL_IPC_PATH}
-  local_ipc_sender:send_datagram("watch:" .. path_to_watch)
+  -- refactor: add timeout
+  -- when a daemon is created, need to wait for it to open the socket
+  local status, error_message, erno = nil, nil, nil
+  while status == nil do
+    status, error_message, erno = local_ipc_sender:send_datagram("watch:" ..
+                                                                   path_to_watch)
+    assert(status ~= nil or erno == LocalIpc.CONNECTION_REFUSED_ERNO,
+           common_utils.sanitize_error_message(error_message))
+  end
 end
 
 return figure_auto_exporter

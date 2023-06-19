@@ -1,8 +1,12 @@
-  local posix_socket = require('posix.sys.socket')
+local posix_socket = require('posix.sys.socket')
 local posix_syslog = require('posix.syslog')
 local common_utils = require('common_utils')
 
-local LocalIpc = {path = nil, DATAGRAM_LENGTH = 1024}
+local LocalIpc = {
+  path = nil,
+  DATAGRAM_LENGTH = 1024,
+  CONNECTION_REFUSED_ERNO = 111
+}
 
 -- Params:
 --    o.path := (string) the path used by Unix Domain Sockets
@@ -34,9 +38,8 @@ end
 function LocalIpc:send_datagram(datagram)
   assert(not self.is_socket_bound,
          "Socket MUST NOT be bound when sending a datagram")
-  local sendto_return_code, error_message, errno =
-    posix_socket.sendto(self.socket, datagram,
-                        {family = posix_socket.AF_UNIX, path = self.path})
+  return posix_socket.sendto(self.socket, datagram,
+                             {family = posix_socket.AF_UNIX, path = self.path})
 end
 
 function LocalIpc:read_datagram_poll(is_logging_to_opened_syslog)
