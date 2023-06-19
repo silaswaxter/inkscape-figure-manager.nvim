@@ -3,8 +3,9 @@ local common_utils = require('common_utils')
 
 local handle = inotify.init({blocking = false})
 
+assert(arg[1] ~= nil, "arg[1] must contain directory to watch for test")
 local add_watch_return_code, error_message =
-  handle:addwatch((arg[1] or '/home/silas'), inotify.IN_CREATE,
+  handle:addwatch((arg[1]), inotify.IN_CREATE,
                   inotify.IN_MODIFY)
 assert(add_watch_return_code ~= nil,
        common_utils.sanitize_error_message(error_message))
