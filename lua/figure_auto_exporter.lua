@@ -50,9 +50,22 @@ function figure_auto_exporter.daemon_routine(routine_params)
                                      event.name
         posix_syslog.syslog(posix_syslog.LOG_INFO,
                             file_absolute_path .. " created or modified")
-        InkscapeController.export_figure(file_absolute_path)
-        posix_syslog.syslog(posix_syslog.LOG_INFO,
-                            file_absolute_path .. " exported as png")
+        local is_exit_success, exit_error_type, exit_code =
+          InkscapeController.export_figure(file_absolute_path)
+        if is_exit_success then
+          posix_syslog.syslog(posix_syslog.LOG_INFO,
+                              file_absolute_path .. " is being exported as png")
+        else
+          posix_syslog.syslog(posix_syslog.LOG_INFO,
+                              file_absolute_path .. " failed to export")
+          if exit_error_type == "exit" then
+            posix_syslog.syslog(posix_syslog.LOG_INFO,
+                                "exited with ".. exit_code)
+          elseif exit_error_type == "signal" then
+            posix_syslog.syslog(posix_syslog.LOG_INFO,
+                                "caught signal ".. exit_code)
+          end
+        end
       end
     end
   end
