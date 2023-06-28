@@ -7,7 +7,6 @@ local Daemon = require('daemon')
 local InkscapeController = require('inkscape_controller')
 local common_utils = require('common_utils')
 local posix_syslog = require('posix.syslog')
-local posix_fcntl = require('posix.fcntl')
 
 local figure_auto_exporter = {}
 
@@ -15,15 +14,11 @@ local DAEMON_PROCESS_NAME = "inkscape_figure_managerd"
 local LOCAL_IPC_PATH = "\0" .. DAEMON_PROCESS_NAME
 
 function figure_auto_exporter.daemon_routine(routine_params)
-  -- First, setup the socket so that clients have minimal wait time.
-  -- (recall, they cannot send messages until this endpoint is established)
-  local local_ipc_receiver = LocalIpc:new{path = routine_params[1]}
-  -- make socket non-blocking
-  local socket_flags = posix_fcntl.fcntl(local_ipc_receiver.socket,
-                                         posix_fcntl.F_GETFL)
-  socket_flags = socket_flags | posix_fcntl.O_NONBLOCK
-  assert(posix_fcntl.fcntl(local_ipc_receiver.socket, posix_fcntl.F_SETFL,
-                           socket_flags))
+  -- Setup socket first so clients have minimal wait time.
+  local local_ipc_receiver = LocalIpc:new{
+    path = routine_params[1],
+    is_socket_blocking = false
+  }
   local_ipc_receiver:bind_socket()
 
   local watch_descriptors = {}
@@ -33,6 +28,8 @@ function figure_auto_exporter.daemon_routine(routine_params)
     local message = local_ipc_receiver:read_datagram_poll(false)
     if message ~= nil then
       local _, _, dir_to_watch = message:find(".-watch:(.*)")
+
+      -- TODO: check if watch point exists
 
       if dir_to_watch ~= nil then
         posix_syslog.syslog(posix_syslog.LOG_INFO,
@@ -60,10 +57,10 @@ function figure_auto_exporter.daemon_routine(routine_params)
                               file_absolute_path .. " failed to export")
           if exit_error_type == "exit" then
             posix_syslog.syslog(posix_syslog.LOG_INFO,
-                                "exited with ".. exit_code)
+                                "exited with " .. exit_code)
           elseif exit_error_type == "signal" then
             posix_syslog.syslog(posix_syslog.LOG_INFO,
-                                "caught signal ".. exit_code)
+                                "caught signal " .. exit_code)
           end
         end
       end
@@ -71,7 +68,11 @@ function figure_auto_exporter.daemon_routine(routine_params)
   end
 end
 
+-- Watch the directory at path_to_watch (non-recursively) for modified figure
+-- files (.svg). When a watched figure file is modified, export it (.png).
 function figure_auto_exporter.client_add_watch_location(path_to_watch)
+  --remove potential trailing slash from path
+  local _, _, path_to_watch = path_to_watch:find("(.-)/?[%s%c]*$")
   local daemon = Daemon:new{
     routine = figure_auto_exporter.daemon_routine,
     process_name = DAEMON_PROCESS_NAME,

@@ -1,15 +1,27 @@
+local bit32 = require('bit32')
+local posix_fcntl = require('posix.fcntl')
 local posix_socket = require('posix.sys.socket')
 local posix_syslog = require('posix.syslog')
 local common_utils = require('common_utils')
 
 local LocalIpc = {
   path = nil,
+  is_socket_blocking = true,
   DATAGRAM_LENGTH = 1024,
   CONNECTION_REFUSED_ERNO = 111
 }
 
+local function make_socket_non_blocking(socket)
+  local socket_flags = posix_fcntl.fcntl(socket,
+                                         posix_fcntl.F_GETFL)
+  socket_flags = bit32.bor(socket_flags,  posix_fcntl.O_NONBLOCK)
+  assert(posix_fcntl.fcntl(socket, posix_fcntl.F_SETFL,
+                           socket_flags))
+end
+
 -- Params:
---    o.path := (string) the path used by Unix Domain Sockets
+--    o.path                := (string) the path used by Unix Domain Sockets
+--    o.is_socket_blocking  := (boolean) determines if socket reads block
 function LocalIpc:new(o)
   assert(o.path ~= nil,
          "You must initialize parameters when creating new LocalIpc.")
@@ -21,8 +33,11 @@ function LocalIpc:new(o)
                                                    posix_socket.SOCK_DGRAM, 0)
   assert(self.socket ~= nil, common_utils.sanitize_error_message(error_message))
 
-  self.is_socket_bound = false
+  if not o.is_socket_blocking then
+    make_socket_non_blocking(self.socket)
+  end
 
+  self.is_socket_bound = false
   return o
 end
 

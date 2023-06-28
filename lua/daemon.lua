@@ -20,6 +20,8 @@ local posix_syslog = require('posix.syslog')
 local posix_signal = require('posix.signal')
 local common_utils = require('common_utils')
 
+local CHECK_RUNNING_PROCESS_SIGNAL = 0
+
 local Daemon = {routine = nil, process_name = nil, routine_params = nil}
 
 local function close_all_open_file_descriptors_brute_force()
@@ -35,9 +37,10 @@ end
 local function is_daemon_running(process_name)
   local pid_file = io.open(get_pid_file_name(process_name), "r")
   if pid_file ~= nil then
-    local pid = pid_file:read("n")
-    -- check if process is running
-    if posix_signal.kill(pid, 0) ~= nil then return true end
+    local pid = pid_file:read("*n")
+    if posix_signal.kill(pid, CHECK_RUNNING_PROCESS_SIGNAL) ~= nil then
+      return true
+    end
   end
   return false
 end
