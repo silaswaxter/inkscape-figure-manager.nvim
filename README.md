@@ -17,8 +17,6 @@ editors. This plugin pairs Inkscape, a FOSS svg editor, with neovim.
 
 - Supported OS(es):
   - Linux
-  - Mac (untested, was supported at underlying python app's fork)
-- Python >= 3.10
 
 ## FAQ
 

@@ -1,5 +1,28 @@
 local common_utils = {}
 
+-- Run a command using vim's builtin jobs so that its async (vim is still
+-- interactive).
+function common_utils.vim_start_standard_buffered_job(command)
+  local job = {responses = {}, job_id = nil}
+  local add_command_data = function(channel_handle, data, stream_name)
+    job.responses[stream_name] = data
+  end
+
+  local exit_cb = function(channel_handle, data, stream_name)
+    for i, v in ipairs(job.responses.stderr) do print(v) end
+  end
+
+  job.job_id = vim.fn.jobstart(command, {
+    -- wait for stream close before invoking callbacks
+    stdout_buffered = true,
+    stderr_buffered = true,
+    on_stdout = add_command_data,
+    on_stderr = add_command_data,
+    on_exit = exit_cb
+  })
+  return job
+end
+
 -- Sanitize error messages by printing when the error message is nil.
 -- Useful when asserting that a function call which returns the common
 -- 3 values (ie return_code, error_message, erno) succeeded.
@@ -18,6 +41,14 @@ function common_utils.concat_with_spaces(words)
   string = words[1]
   for i = 2, #words, 1 do string = string .. ' ' .. words[i] end
   return string
+end
+
+-- Copy file using OS's utility (eg `cp` for linux)
+function common_utils.copy_file(source_file_absolute_path,
+                                destination_file_absolute_path)
+  os.execute(common_utils.concat_with_spaces({
+    'cp', source_file_absolute_path, destination_file_absolute_path
+  }))
 end
 
 -- Quick and dirty method that blocks execution for a number of seconds specified
