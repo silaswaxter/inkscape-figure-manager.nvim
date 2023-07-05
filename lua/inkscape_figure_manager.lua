@@ -35,12 +35,30 @@ local function is_template_figure_found()
   return template_file ~= nil
 end
 
+-- Inserts the markdown inclusion text for the figure in the current buffer at the
+-- cursor's position. Insertion implies cursor is moved to after inserted text.
+local function insert_figure_text(alternate_text, figure_absolute_path)
+  local _, j = figure_absolute_path:find(get_user_buffer_directory())
+  local figure_relative_path = figure_absolute_path:sub(j + 1)
+  local figure_inclusion_text = '![' .. alternate_text .. '](' ..
+                                  figure_relative_path .. ')'
+
+  -- Insert text
+  local cursor_position = vim.api.nvim_win_get_cursor(0)
+  local line = vim.api.nvim_get_current_line()
+  local new_line = line:sub(0, cursor_position[2]) .. figure_inclusion_text ..
+                     line:sub(cursor_position[2] + 1)
+  vim.api.nvim_set_current_line(new_line)
+
+  cursor_position[2] = cursor_position[2] + #figure_inclusion_text
+  vim.api.nvim_win_set_cursor(0, cursor_position)
+end
+
 local function create_figure_callback(input)
-  if input == nil then
-    return false
-  end
-  input = snake_caseify(input) .. ".svg"
-  local figure_absolute_path = get_user_buffer_directory() .. input
+  if input == nil then return false end
+
+  local figure_absolute_path = get_user_buffer_directory() ..
+                                 snake_caseify(input) .. ".svg"
   if not is_template_figure_found() then
     vim.notify_once("\n") -- vim.ui.input doesnt have newline
     vim.notify_once(
@@ -50,6 +68,7 @@ local function create_figure_callback(input)
   end
   common_utils.copy_file(TEMPLATE_FIGURE_ABSOLUTE_PATH, figure_absolute_path)
   open_figure(figure_absolute_path)
+  insert_figure_text(input, figure_absolute_path)
   return true
 end
 
