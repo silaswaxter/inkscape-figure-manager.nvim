@@ -80,4 +80,27 @@ function InkscapeFigureManager.create_figure()
   return user_input
 end
 
+function InkscapeFigureManager.edit_figure_under_cursor()
+  local current_line = vim.api.nvim_get_current_line()
+  local cursor_position = vim.api.nvim_win_get_cursor(0)
+
+  while true do
+    local i, j, relative_figure_path = current_line:find("!%[.-%]%((.-)%)")
+
+    if i == nil then
+      vim.notify_once("No figure under cursor", vim.log.levels.ERROR)
+      return false
+    end
+
+    if (cursor_position[2] + 1) >= i and (cursor_position[2] + 1) <= j then
+      print(relative_figure_path)
+      break
+    end
+
+    local current_line_preadjustment_length = #current_line
+    current_line = current_line:sub(j+1)
+    cursor_position[2] = cursor_position[2] - (current_line_preadjustment_length - #current_line)
+  end
+end
+
 return InkscapeFigureManager
