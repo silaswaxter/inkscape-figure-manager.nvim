@@ -110,4 +110,17 @@ function InkscapeFigureManager.edit_figure_under_cursor()
   end
 end
 
+function InkscapeFigureManager.edit_figure_first_on_cursor_line()
+  local current_line = vim.api.nvim_get_current_line()
+
+  local i, _, relative_figure_path = current_line:find("!%[.-%]%((.-)%)")
+
+  if i == nil then
+    vim.notify("No figure on cursor line.", vim.log.levels.ERROR)
+    return false
+  end
+
+  edit_figure(get_user_buffer_directory() .. relative_figure_path)
+end
+
 return InkscapeFigureManager

@@ -7,7 +7,7 @@ command! InkscapeFigureManagerCreate lua require'inkscape_figure_manager'.create
 
 command! InkscapeFigureManagerEditFigureUnderCursor lua require'inkscape_figure_manager'.edit_figure_under_cursor()
 
-"command! InkscapeFigureManagerEditFirstFigureCurrentLine lua require'inkscape_figure_manager'.edit_first_figure_on_current_line()
+command! InkscapeFigureManagerEditFirstFigureCurrentLine lua require'inkscape_figure_manager'.edit_figure_first_on_cursor_line()
 
 "command! InkscapeFigureManagerEditFigureFromMarkdownBuffer lua require'inkscape_figure_manager'.edit_figure_from_markdown_document()
 
