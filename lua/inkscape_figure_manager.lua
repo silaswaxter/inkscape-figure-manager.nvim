@@ -28,6 +28,13 @@ local function open_figure(figure_absolute_path)
     }))
 end
 
+-- Edit (opens) the figure informing the user while doing so; useful because
+-- Inkscape can be slow to start.
+local function edit_figure(figure_absolute_path)
+  vim.notify("Opening '" .. figure_absolute_path .. "' with Inkscape.")
+  open_figure(figure_absolute_path)
+end
+
 -- Searches at specific locations for the template figure and returns whether it was found.
 -- The template figure is during figure creation.
 local function is_template_figure_found()
@@ -93,7 +100,7 @@ function InkscapeFigureManager.edit_figure_under_cursor()
     end
 
     if (cursor_position[2] + 1) >= i and (cursor_position[2] + 1) <= j then
-      print(relative_figure_path)
+      edit_figure(get_user_buffer_directory() .. relative_figure_path)
       break
     end
 
