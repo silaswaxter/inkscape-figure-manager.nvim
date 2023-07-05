@@ -60,8 +60,8 @@ local function create_figure_callback(input)
   local figure_absolute_path = get_user_buffer_directory() ..
                                  snake_caseify(input) .. ".svg"
   if not is_template_figure_found() then
-    vim.notify_once("\n") -- vim.ui.input doesnt have newline
-    vim.notify_once(
+    vim.notify("\n") -- vim.ui.input doesnt have newline
+    vim.notify(
       "Template file not found. Please place a template figure at '" ..
         TEMPLATE_FIGURE_ABSOLUTE_PATH .. "'", vim.log.levels.ERROR)
     return false
@@ -88,7 +88,7 @@ function InkscapeFigureManager.edit_figure_under_cursor()
     local i, j, relative_figure_path = current_line:find("!%[.-%]%((.-)%)")
 
     if i == nil then
-      vim.notify_once("No figure under cursor", vim.log.levels.ERROR)
+      vim.notify("No figure under cursor.", vim.log.levels.ERROR)
       return false
     end
 
