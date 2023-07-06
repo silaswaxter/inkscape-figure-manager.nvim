@@ -22,7 +22,7 @@ local common_utils = require('common_utils')
 
 local CHECK_RUNNING_PROCESS_SIGNAL = 0
 
-local Daemon = {routine = nil, process_name = nil, routine_params = nil}
+local Daemon = {routine = nil, process_name = nil, routine_params = nil, is_clear_umask = true}
 
 local function close_all_open_file_descriptors_brute_force()
   local system_max_open_file_descriptors =
@@ -104,7 +104,9 @@ function Daemon:create_daemon()
 
   overwrite_pid_file(self.process_name)
 
-  posix.umask('0')
+  if self.is_clear_umask then
+    posix.umask('0')
+  end
 
   local chdir_return_code
   chdir_return_code, error_message = posix_unistd.chdir("/")

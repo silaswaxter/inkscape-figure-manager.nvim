@@ -71,12 +71,13 @@ end
 -- Watch the directory at path_to_watch (non-recursively) for modified figure
 -- files (.svg). When a watched figure file is modified, export it (.png).
 function figure_auto_exporter.client_add_watch_location(path_to_watch)
-  --remove potential trailing slash from path
+  -- remove potential trailing slash from path
   local _, _, path_to_watch = path_to_watch:find("(.-)/?[%s%c]*$")
   local daemon = Daemon:new{
     routine = figure_auto_exporter.daemon_routine,
     process_name = DAEMON_PROCESS_NAME,
-    routine_params = {LOCAL_IPC_PATH}
+    routine_params = {LOCAL_IPC_PATH},
+    is_clear_umask = false
   }
   daemon:ensure_daemon()
 
