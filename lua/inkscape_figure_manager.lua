@@ -67,13 +67,19 @@ local function create_figure_callback(input)
 
   local figure_absolute_path = get_user_buffer_directory() ..
                                  snake_caseify(input) .. ".svg"
+  vim.notify("\n") -- vim.ui.input doesnt have newline
   if not is_template_figure_found() then
-    vim.notify("\n") -- vim.ui.input doesnt have newline
     vim.notify(
       "Template file not found. Please place a template figure at '" ..
         TEMPLATE_FIGURE_ABSOLUTE_PATH .. "'", vim.log.levels.ERROR)
     return false
   end
+
+  if io.open(figure_absolute_path, "r") ~= nil then
+    vim.notify("A figure with this name already exists.", vim.log.levels.ERROR)
+    return false
+  end
+
   common_utils.copy_file(TEMPLATE_FIGURE_ABSOLUTE_PATH, figure_absolute_path)
   open_figure(figure_absolute_path)
   insert_figure_text(input, figure_absolute_path)
