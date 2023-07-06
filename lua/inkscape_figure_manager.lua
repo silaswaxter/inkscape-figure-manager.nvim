@@ -1,23 +1,10 @@
-local buf, create_figure_text_input_window
+local common_utils = require('common_utils')
+local figure_auto_exporter = require('figure_auto_exporter')
 
-local function start_job_inkfigman(inkfigman_arguments)
-  local inkfigman_job = {responses = {}, job_id = nil}
-  local add_command_data = function(channel_handle, data, stream_name)
-    inkfigman_job.responses[stream_name] = data
-  end
-
-  inkfigman_job.job_id = vim.fn.jobstart(
-                           "python -m inkscape_figure_manager " ..
-                             inkfigman_arguments, {
-      -- wait for stream close before invoking callbacks
-      stdout_buffered = true,
-      stderr_buffered = true,
-      on_stdout = add_command_data,
-      on_stderr = add_command_data,
-      on_exit = add_command_data
-    })
-  return inkfigman_job
-end
+local InkscapeFigureManager = {}
+local TEMPLATE_FIGURE_ABSOLUTE_PATH = os.getenv("HOME") ..
+                                        "/.config/inkscape-figure-manager/template.svg"
+local MARKDOWN_IMAGE_INCLUSION_PATTERN = "!%[.-%]%((.-)%)"
 
 local function get_user_buffer_directory()
   local user_buffer_absolute_path = vim.api.nvim_buf_get_name(0)
@@ -25,160 +12,148 @@ local function get_user_buffer_directory()
                     string.find(user_buffer_absolute_path, ".*/"))
 end
 
-local function concat_with_spaces(words)
-  local concat = ""
-  for i = 1, (#words - 1), 1 do concat = concat .. words[i] .. " " end
-  return concat .. words[#words]
+local function snake_caseify(input)
+  input = input:gsub("[%p%s%c]", "_")
+  return input
 end
 
-local function file_can_be_read(file_name)
-  local f = io.open(file_name, "r+b")
-  return f ~= nil and io.close(f)
-end
+-- Opens figure at figure_absolute_path which must exist
+local function open_figure(figure_absolute_path)
+  local figure_directory_absolute_path =
+    figure_absolute_path:sub(figure_absolute_path:find("(.+/)"))
+  figure_auto_exporter.client_add_watch_location(figure_directory_absolute_path)
 
--- expects markdown_text to be a string of `![...](...)`
-local function get_figure_absolute_path(markdown_text,
-                                        markdown_buffer_absolute_path)
-  local _, _, markdown_text_figure_path = string.find(markdown_text, "!%[.-%]%((.-)%)")
-  markdown_text_figure_path = string.gsub(markdown_text_figure_path, ".png$", ".svg")
-
-  local figure_absolute_path = nil
-  if string.sub(markdown_text_figure_path, 1, 1) == "/" then
-    figure_absolute_path = markdown_text_figure_path
-  else
-    figure_absolute_path = markdown_buffer_absolute_path ..
-                             markdown_text_figure_path
-  end
-
-  if file_can_be_read(figure_absolute_path) then
-    return figure_absolute_path
-  else
-    return nil
-  end
-end
-
-local function edit_figure(figure_absolute_path)
-  if figure_absolute_path ~= nil then
-    start_job_inkfigman(concat_with_spaces({"edit", figure_absolute_path}))
-  else
-    print("Figure could not be opened")
-  end
-end
-
--- returns a table containing all markdown figure inclusion text from within the raw_text
-local function get_figure_texts_table(raw_text)
-  local figure_texts = {}
-  for figure_text in string.gmatch(raw_text, "!%[.-%]%(.-%)") do
-    table.insert(figure_texts, figure_text)
-  end
-  return figure_texts
-end
-
-local function edit_figure_from_markdown_document()
-  start_job_inkfigman(concat_with_spaces({"edit", vim.api.nvim_buf_get_name(0)}))
-end
-
-local function edit_first_figure_on_current_line()
-  local current_line = vim.api.nvim_get_current_line()
-  edit_figure(get_figure_absolute_path(get_figure_texts_table(current_line)[1],
-                                       get_user_buffer_directory()))
-end
-
-local function edit_figure_under_cursor()
-  local current_line = vim.api.nvim_get_current_line()
-  local cursor = vim.api.nvim_win_get_cursor(0)
-
-  local truncated_line = string.sub(current_line, 1,
-                                    string.find(current_line, "%)", cursor[2]))
-
-  local figure_texts = get_figure_texts_table(truncated_line)
-  edit_figure(get_figure_absolute_path(figure_texts[#figure_texts],
-                                       get_user_buffer_directory()))
-end
-
-local function watch_directory_for_figures(watch_directory)
-  start_job_inkfigman(concat_with_spaces({"watch", watch_directory}))
-end
-
-local function watch_user_buffer_directory_for_figures()
-  watch_directory_for_figures(get_user_buffer_directory())
-end
-
-local function create_figure_confirm(creation_directory)
-  -- quote alternate text to include spaces
-  local alternate_text = '"' .. vim.api.nvim_get_current_line() .. '"'
-
-  local create_figure_job = start_job_inkfigman(
-                              concat_with_spaces({
-      "create", "--figure-dir", creation_directory, "--relative-from",
-      creation_directory, alternate_text
+  local job = common_utils.vim_start_standard_buffered_job(
+                common_utils.concat_with_spaces({
+      'inkscape', figure_absolute_path
     }))
+end
 
-  vim.cmd("stopinsert")
-  vim.api.nvim_win_close(create_figure_text_input_window, true)
+-- Edit (opens) the figure informing the user while doing so; useful because
+-- Inkscape can be slow to start.
+local function edit_figure(figure_absolute_path)
+  vim.notify("Opening '" .. figure_absolute_path .. "' with Inkscape.")
+  open_figure(figure_absolute_path)
+end
 
-  vim.fn.jobwait({create_figure_job.job_id}, 5000) -- timeout after 5 seconds
-  if create_figure_job.responses.exit == 0 then
-    local cursor = vim.api.nvim_win_get_cursor(0)
-    vim.api.nvim_buf_set_text(0, cursor[1] - 1, cursor[2], cursor[1] - 1,
-                              cursor[2], {create_figure_job.responses.stdout[1]})
-    cursor[2] = cursor[2] + create_figure_job.responses.stdout[1]:len()
-    vim.api.nvim_win_set_cursor(0, cursor)
-  else
-    vim.notify(create_figure_job.responses.stderr[1] .. "\n",
-               vim.log.levels.ERROR)
+-- Searches at specific locations for the template figure and returns whether it was found.
+-- The template figure is during figure creation.
+local function is_template_figure_found()
+  local template_file = io.open(TEMPLATE_FIGURE_ABSOLUTE_PATH, "r")
+  return template_file ~= nil
+end
+
+-- Inserts the markdown inclusion text for the figure in the current buffer at the
+-- cursor's position. Insertion implies cursor is moved to after inserted text.
+local function insert_figure_text(alternate_text, figure_absolute_path)
+  local _, j = figure_absolute_path:find(get_user_buffer_directory())
+  local figure_relative_path = figure_absolute_path:sub(j + 1)
+  local figure_inclusion_text = '![' .. alternate_text .. '](' ..
+                                  figure_relative_path .. ')'
+
+  -- Insert text
+  local cursor_position = vim.api.nvim_win_get_cursor(0)
+  local line = vim.api.nvim_get_current_line()
+  local new_line = line:sub(0, cursor_position[2]) .. figure_inclusion_text ..
+                     line:sub(cursor_position[2] + 1)
+  vim.api.nvim_set_current_line(new_line)
+
+  cursor_position[2] = cursor_position[2] + #figure_inclusion_text
+  vim.api.nvim_win_set_cursor(0, cursor_position)
+end
+
+local function create_figure_callback(input)
+  if input == nil then return false end
+
+  local figure_absolute_path = get_user_buffer_directory() ..
+                                 snake_caseify(input) .. ".svg"
+  vim.notify("\n") -- vim.ui.input doesnt have newline
+  if not is_template_figure_found() then
+    vim.notify(
+      "Template file not found. Please place a template figure at '" ..
+        TEMPLATE_FIGURE_ABSOLUTE_PATH .. "'", vim.log.levels.ERROR)
+    return false
+  end
+
+  if io.open(figure_absolute_path, "r") ~= nil then
+    vim.notify("A figure with this name already exists.", vim.log.levels.ERROR)
+    return false
+  end
+
+  common_utils.copy_file(TEMPLATE_FIGURE_ABSOLUTE_PATH, figure_absolute_path)
+  open_figure(figure_absolute_path)
+  insert_figure_text(input, figure_absolute_path)
+  return true
+end
+
+-- Create a figure that is named using the snake-caseified text entered by the user in
+-- the popup floating buffer.
+function InkscapeFigureManager.create_figure()
+  local user_input = vim.ui.input({prompt = "Figure Name:"},
+                                  create_figure_callback)
+  return user_input
+end
+
+function InkscapeFigureManager.edit_figure_under_cursor()
+  local current_line = vim.api.nvim_get_current_line()
+  local cursor_position = vim.api.nvim_win_get_cursor(0)
+
+  while true do
+    local i, j, relative_figure_path = current_line:find(
+                                         MARKDOWN_IMAGE_INCLUSION_PATTERN)
+
+    if i == nil then
+      vim.notify("No figure under cursor.", vim.log.levels.ERROR)
+      return false
+    end
+
+    if (cursor_position[2] + 1) >= i and (cursor_position[2] + 1) <= j then
+      edit_figure(get_user_buffer_directory() .. relative_figure_path)
+      break
+    end
+
+    local current_line_preadjustment_length = #current_line
+    current_line = current_line:sub(j + 1)
+    cursor_position[2] = cursor_position[2] -
+                           (current_line_preadjustment_length - #current_line)
   end
 end
 
-local function create_figure_cancel()
-  vim.cmd("stopinsert")
-  vim.api.nvim_win_close(create_figure_text_input_window, true)
-  print("Canceled figure creation...")
+function InkscapeFigureManager.edit_figure_first_on_cursor_line()
+  local current_line = vim.api.nvim_get_current_line()
+
+  local i, _, relative_figure_path = current_line:find(
+                                       MARKDOWN_IMAGE_INCLUSION_PATTERN)
+
+  if i == nil then
+    vim.notify("No figure on cursor line.", vim.log.levels.ERROR)
+    return false
+  end
+
+  edit_figure(get_user_buffer_directory() .. relative_figure_path)
 end
 
-local function create_figure_open()
-  local user_buffer_directory = get_user_buffer_directory()
-
-  buf = vim.api.nvim_create_buf(false, true)
-
-  -- delete buffer contents when hidden
-  vim.api.nvim_buf_set_option(buf, 'bufhidden', 'wipe')
-
-  local context_width = vim.api.nvim_get_option("columns")
-  local context_height = vim.api.nvim_get_option("lines")
-  local float_win_opts = {
-    title = "Enter Figure's Alternate Text",
-    border = "single",
-    style = "minimal",
-    relative = "editor",
-    width = math.ceil(context_width * 0.8),
-    height = 1
-  }
-  float_win_opts.col = math.ceil((context_width - float_win_opts.width) / 2)
-  float_win_opts.row =
-    math.ceil((context_height - float_win_opts.width) / 2 - 1)
-
-  create_figure_text_input_window = vim.api.nvim_open_win(buf, true,
-                                                          float_win_opts)
-  vim.cmd(":startinsert")
-
-  -- Bind "Enter" as confirm and "Esc" as cancel for this buffer
-  vim.api.nvim_buf_set_keymap(buf, "i", "<cr>",
-                              "<cmd>lua require('inkscape_figure_manager').create_figure_confirm(" ..
-                                "\"" .. user_buffer_directory .. "\"" .. ")<cr>",
-                              {})
-  vim.api.nvim_buf_set_keymap(buf, "i", "<esc>",
-                              "<cmd>lua require('inkscape_figure_manager').create_figure_cancel()<cr>",
-                              {})
+local function select_figure_to_edit_callback(selected_relative_figure_path)
+  vim.notify("\n")
+  edit_figure(get_user_buffer_directory() .. selected_relative_figure_path)
 end
 
-return {
-  edit_figure_from_markdown_document = edit_figure_from_markdown_document,
-  edit_first_figure_on_current_line = edit_first_figure_on_current_line,
-  edit_figure_under_cursor = edit_figure_under_cursor,
-  watch_user_buffer_directory_for_figures = watch_user_buffer_directory_for_figures,
-  watch_directory_for_figures = watch_directory_for_figures,
-  create_figure_open = create_figure_open,
-  create_figure_confirm = create_figure_confirm,
-  create_figure_cancel = create_figure_cancel
-}
+function InkscapeFigureManager.edit_figure_from_markdown_document()
+  local document_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local figures_relative_paths = {}
+  for _, line in ipairs(document_lines) do
+    repeat
+      local i, j, relative_figure_path = line:find(
+                                           MARKDOWN_IMAGE_INCLUSION_PATTERN)
+      if i ~= nil then
+        table.insert(figures_relative_paths, relative_figure_path)
+        line = line:sub(j + 1)
+      end
+    until (i == nil)
+  end
+
+  vim.ui.select(figures_relative_paths, {prompt = "Select a figure to edit"},
+                select_figure_to_edit_callback)
+end
+
+return InkscapeFigureManager
