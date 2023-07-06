@@ -4,6 +4,7 @@ local figure_auto_exporter = require('figure_auto_exporter')
 local InkscapeFigureManager = {}
 local TEMPLATE_FIGURE_ABSOLUTE_PATH = os.getenv("HOME") ..
                                         "/.config/inkscape-figure-manager/template.svg"
+local MARKDOWN_IMAGE_INCLUSION_PATTERN = "!%[.-%]%((.-)%)"
 
 local function get_user_buffer_directory()
   local user_buffer_absolute_path = vim.api.nvim_buf_get_name(0)
@@ -92,7 +93,8 @@ function InkscapeFigureManager.edit_figure_under_cursor()
   local cursor_position = vim.api.nvim_win_get_cursor(0)
 
   while true do
-    local i, j, relative_figure_path = current_line:find("!%[.-%]%((.-)%)")
+    local i, j, relative_figure_path = current_line:find(
+                                         MARKDOWN_IMAGE_INCLUSION_PATTERN)
 
     if i == nil then
       vim.notify("No figure under cursor.", vim.log.levels.ERROR)
@@ -105,15 +107,17 @@ function InkscapeFigureManager.edit_figure_under_cursor()
     end
 
     local current_line_preadjustment_length = #current_line
-    current_line = current_line:sub(j+1)
-    cursor_position[2] = cursor_position[2] - (current_line_preadjustment_length - #current_line)
+    current_line = current_line:sub(j + 1)
+    cursor_position[2] = cursor_position[2] -
+                           (current_line_preadjustment_length - #current_line)
   end
 end
 
 function InkscapeFigureManager.edit_figure_first_on_cursor_line()
   local current_line = vim.api.nvim_get_current_line()
 
-  local i, _, relative_figure_path = current_line:find("!%[.-%]%((.-)%)")
+  local i, _, relative_figure_path = current_line:find(
+                                       MARKDOWN_IMAGE_INCLUSION_PATTERN)
 
   if i == nil then
     vim.notify("No figure on cursor line.", vim.log.levels.ERROR)
@@ -121,6 +125,29 @@ function InkscapeFigureManager.edit_figure_first_on_cursor_line()
   end
 
   edit_figure(get_user_buffer_directory() .. relative_figure_path)
+end
+
+local function select_figure_to_edit_callback(selected_relative_figure_path)
+  vim.notify("\n")
+  edit_figure(get_user_buffer_directory() .. selected_relative_figure_path)
+end
+
+function InkscapeFigureManager.edit_figure_from_markdown_document()
+  local document_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local figures_relative_paths = {}
+  for _, line in ipairs(document_lines) do
+    repeat
+      local i, j, relative_figure_path = line:find(
+                                           MARKDOWN_IMAGE_INCLUSION_PATTERN)
+      if i ~= nil then
+        table.insert(figures_relative_paths, relative_figure_path)
+        line = line:sub(j + 1)
+      end
+    until (i == nil)
+  end
+
+  vim.ui.select(figures_relative_paths, {prompt = "Select a figure to edit"},
+                select_figure_to_edit_callback)
 end
 
 return InkscapeFigureManager
